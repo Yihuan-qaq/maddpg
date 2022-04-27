@@ -11,6 +11,8 @@ import random
 import json
 from Env import Env
 import matplotlib.pyplot as plt
+
+
 # from FL.datasets.get_data import *
 
 
@@ -167,55 +169,11 @@ if __name__ == '__main__':
     SOURCE_PATH_PHN = r'../example/si836.phn'
     SOURCE_PATH_WAV = r'../example/si836.wav'
 
-    # dataloaders = get_dataloaders(args)
-    # cloud_location = [(0, 0)]
-    # edge_location = [(6, 6), (-9, 10), (-3, -10), (-20, 25), (250, 20), (150, -20)]
-    # client_location = []
-    # for i in range(24):
-    #     if i < 7:
-    #         location = (
-    #         edge_location[0][0] + (random.random() * 0.2 - 0.1), edge_location[0][1] + (random.random() * 0.2 - 0.1))
-    #     elif i < 14:
-    #         location = (
-    #         edge_location[1][0] + (random.random() * 0.2 - 0.1), edge_location[1][1] + (random.random() * 0.2 - 0.1))
-    #     elif i < 21:
-    #         location = (
-    #         edge_location[2][0] + (random.random() * 0.2 - 0.1), edge_location[2][1] + (random.random() * 0.2 - 0.1))
-    #     elif i == 21:
-    #         location = (
-    #         edge_location[3][0] + (random.random() * 0.2 - 0.1), edge_location[3][1] + (random.random() * 0.2 - 0.1))
-    #     elif i == 22:
-    #         location = (
-    #         edge_location[4][0] + (random.random() * 0.2 - 0.1), edge_location[4][1] + (random.random() * 0.2 - 0.1))
-    #     elif i == 23:
-    #         location = (
-    #         edge_location[5][0] + (random.random() * 0.2 - 0.1), edge_location[5][1] + (random.random() * 0.2 - 0.1))
-    #     client_location.append(location)
-    #
-    # locations_list = []
-    # locations_list.append(cloud_location)
-    # locations_list.append(edge_location)
-    # locations_list.append(client_location)
-    #
-    # ##########################################################################################################
-    # #                                         FL                                                             #
-    # ##########################################################################################################
-    # compare(dataloaders, locations_list)
-    #
-    # ##########################################################################################################
-    # #                                         RL                                                             #
-    # ##########################################################################################################
-    # env = FL(args, dataloaders, locations_list)
     env = Env(PHN, SOURCE_PATH_WAV, SOURCE_PATH_PHN)
     var = 0.3
     agents_list = [Agent(env.get_s_dim(), env.get_a_dim(), i, args, env.action_space_high()) for i in range(1)]
     M = Memory(capacity=args.memory_capacity, state_dim=env.get_s_dim(), action_dim=env.get_a_dim(), num_agents=1)
     server = Server(env.get_s_dim(), env.get_a_dim(), 1)
-
-    # plot_x = np.zeros(0)
-    # plot_reward = np.zeros(0)
-    # plot_acc = np.zeros(0)
-    # plot_cost = np.zeros(0)
 
     r_max_record = np.zeros(env.get_s_dim(), dtype=float)
     epoch_record = 0
@@ -225,7 +183,7 @@ if __name__ == '__main__':
     total_AVG_threshold = []
     total_TD_error = []
 
-    for t in tqdm(range(10)):
+    for t in tqdm(range(100)):
         state = env.reset()
         ep_reward = []  # 记录当前EP的reward
         TD_ERROR = []  # 记录当前EP的TD_ERROR
@@ -236,7 +194,8 @@ if __name__ == '__main__':
             actions = []
             for i, agent in enumerate(agents_list):
                 a = agent.actor.choose_action(agent.observation(state))
-                a = np.clip(np.random.normal(a, var), -env.action_space_high(), env.action_space_high())  # add randomness to action selection for exploration
+                a = np.clip(np.random.normal(a, var), -env.action_space_high(),
+                            env.action_space_high())  # add randomness to action selection for exploration
                 actions += a.tolist()
             state_, reward, done, asr_time = env.step(state, actions)
 
@@ -304,29 +263,31 @@ if __name__ == '__main__':
                         target_param.data.copy_(target_param.data * (1.0 - args.TAU) + param.data * args.TAU)
 
                 # 保存
-                torch.save(agents_list[0].target_actor.state_dict(), './actor_model')
+                torch.save(agents_list[0].target_actor.state_dict(), '../actor_model')
 
-        plt.title('EP-Reward,epoch_{}'.format(t))
-        plt.xlabel('steps')
-        plt.ylabel('reward value')
-        plt.plot(np.array(range(len(ep_reward))), ep_reward)
-        plt.savefig(r'..\figure\reward_{}'.format(t))
-        plt.show()
+        if (t + 1) % 5 == 0:
 
-        plt.figure()
-        plt.title('EP-TD_ERROR,epoch_{}'.format(t))
-        plt.xlabel('steps')
-        plt.ylabel('td_error value')
-        plt.plot(np.array(range(len(TD_ERROR))), TD_ERROR)
-        plt.savefig(r'..\figure\TD-Error_{}'.format(t))
-        plt.show()
+            plt.title('EP-Reward,epoch_{}'.format(t))
+            plt.xlabel('steps')
+            plt.ylabel('reward value')
+            plt.plot(np.array(range(len(ep_reward))), ep_reward)
+            plt.savefig(r'..\figure\reward_{}'.format(t))
+            plt.show()
+
+            plt.figure()
+            plt.title('EP-TD_ERROR,epoch_{}'.format(t))
+            plt.xlabel('steps')
+            plt.ylabel('td_error value')
+            plt.plot(np.array(range(len(TD_ERROR))), TD_ERROR)
+            plt.savefig(r'..\figure\TD-Error_{}'.format(t))
+            plt.show()
 
         total_TD_error.append(TD_ERROR)
-        total_reward.append(total_reward)
+        total_reward.append(ep_reward)
         total_AVG_threshold.append(avg_S / args.max_ep_step)
 
         print('AVG_Threshold:{}'.format(avg_S / args.max_ep_step))
 
-    np.save(r'../result/TD_ERROR.npy', total_TD_error)
-    np.save(r'../result/Reward.npy', total_reward)
-    np.save(r'../result/AVG.npy', total_AVG_threshold)
+    np.save(r'../result/TD_ERROR.npy', np.array(total_TD_error))
+    np.save(r'../result/Reward.npy', np.array(total_reward))
+    np.save(r'../result/AVG.npy', np.array(total_AVG_threshold))
