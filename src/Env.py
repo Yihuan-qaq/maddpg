@@ -165,7 +165,8 @@ class Env(object):
         """
         done = False
         r = 0
-        s_ = s + a
+        s_ = list(map(lambda x: x[0] + x[1], zip(s, a)))
+        # s_ = s + a
         # threshold = s_[0]
         threshold = s_
         """限制阈值范围"""

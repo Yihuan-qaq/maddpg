@@ -10,6 +10,7 @@ from tqdm import tqdm
 import random
 import json
 from Env import Env
+import matplotlib.pyplot as plt
 # from FL.datasets.get_data import *
 
 
@@ -216,8 +217,21 @@ if __name__ == '__main__':
     # plot_acc = np.zeros(0)
     # plot_cost = np.zeros(0)
 
-    for t in tqdm(range(10000)):
+    r_max_record = np.zeros(env.get_s_dim(), dtype=float)
+    epoch_record = 0
+    r_max = 0.0
+    reward = -10000.0
+    total_reward = []
+    total_AVG_threshold = []
+    total_TD_error = []
+
+    for t in tqdm(range(10)):
         state = env.reset()
+        ep_reward = []  # 记录当前EP的reward
+        TD_ERROR = []  # 记录当前EP的TD_ERROR
+        asr_time = 0  # 记录当前EP的ASR消耗的时间
+        avg_S = np.zeros(env.get_s_dim(), dtype=float)
+
         for ep in range(args.max_ep_step):
             actions = []
             for i, agent in enumerate(agents_list):
@@ -225,6 +239,16 @@ if __name__ == '__main__':
                 a = np.clip(np.random.normal(a, var), -env.action_space_high(), env.action_space_high())  # add randomness to action selection for exploration
                 actions += a.tolist()
             state_, reward, done, asr_time = env.step(state, actions)
+
+            if reward > r_max:
+                r_max_record = state
+                r_max = reward
+                epoch_record = t
+                print('\n temp_record_done_r', r_max)
+                print('\n temp_record_done_s', r_max_record)
+                print('\n temp_record_epoch:', epoch_record)
+            ep_reward.append(reward)
+            avg_S += state
 
             # plot_x = np.append(plot_x, args.max_ep_step * t + ep)
             # # plot_acc = np.append(plot_acc, acc)
@@ -244,6 +268,7 @@ if __name__ == '__main__':
                     y_ = rewards[:, i:i + 1] + args.gamma * server.target_critic_list[i].forward(states_, actions_)
                     y = server.critic_list[i].forward(states, actions)
                     td_error = F.mse_loss(y_.detach(), y)
+                    TD_ERROR.append(td_error.detach().numpy())
 
                     td_error.backward()
                     torch.nn.utils.clip_grad_norm_(server.critic_list[i].parameters(), 0.5)
@@ -253,6 +278,7 @@ if __name__ == '__main__':
                     _actions = torch.FloatTensor([])
                     temp = 0
                     for i_, agent_ in enumerate(agents_list):
+                        # a = agent_.actor.forward(agent_.observation(states))
                         if i_ == i:
                             temp = agent_.actor.forward(agent_.observation(states))
                             a = temp
@@ -269,6 +295,7 @@ if __name__ == '__main__':
                     agent.actor.optimizer.step()
 
                 """更新target网络"""
+                # print('Paras Update')
                 for i, agent in enumerate(agents_list):
                     for target_param, param in zip(agent.target_actor.parameters(), agent.actor.parameters()):
                         target_param.data.copy_(target_param.data * (1.0 - args.TAU) + param.data * args.TAU)
@@ -278,3 +305,28 @@ if __name__ == '__main__':
 
                 # 保存
                 torch.save(agents_list[0].target_actor.state_dict(), './actor_model')
+
+        plt.title('EP-Reward,epoch_{}'.format(t))
+        plt.xlabel('steps')
+        plt.ylabel('reward value')
+        plt.plot(np.array(range(len(ep_reward))), ep_reward)
+        plt.savefig(r'..\figure\reward_{}'.format(t))
+        plt.show()
+
+        plt.figure()
+        plt.title('EP-TD_ERROR,epoch_{}'.format(t))
+        plt.xlabel('steps')
+        plt.ylabel('td_error value')
+        plt.plot(np.array(range(len(TD_ERROR))), TD_ERROR)
+        plt.savefig(r'..\figure\TD-Error_{}'.format(t))
+        plt.show()
+
+        total_TD_error.append(TD_ERROR)
+        total_reward.append(total_reward)
+        total_AVG_threshold.append(avg_S / args.max_ep_step)
+
+        print('AVG_Threshold:{}'.format(avg_S / args.max_ep_step))
+
+    np.save(r'../result/TD_ERROR.npy', total_TD_error)
+    np.save(r'../result/Reward.npy', total_reward)
+    np.save(r'../result/AVG.npy', total_AVG_threshold)

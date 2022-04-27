@@ -33,8 +33,8 @@ class args_parser():
         self.weight_decay = 0
 
         self.gamma = 0.9
-        self.rl_batch_size = 32
-        self.memory_capacity = 10000
+        self.rl_batch_size = 16
+        self.memory_capacity = 100
         self.TAU = 0.01
 
         self.cuda = torch.cuda.is_available()
