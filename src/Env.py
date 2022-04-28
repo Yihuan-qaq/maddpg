@@ -15,7 +15,7 @@ class Env(object):
 
         flag = 0
         if flag == 0:
-            self.source_result = ASR.asr_api(self.source_path_wav, 'google')
+            self.source_result = ASR.asr_api(self.source_path_wav, 'deepspeech')
             self.temp_source_result = self.source_result
             flag = 1
             print("----source result :{}".format(self.source_result))
@@ -118,9 +118,9 @@ class Env(object):
                 threshold_reward[i] = 0
             elif s[i] <= self.STATE_LOW_BOUND:
                 if a[i] <= 0:
-                    threshold_reward[i] = np.abs(threshold[i]) * 50
-                else:
                     threshold_reward[i] = np.abs(threshold[i]) * 10
+                else:
+                    threshold_reward[i] = np.abs(threshold[i]) * 2
             elif s[i] >= self.STATE_HIGH_BOUND and a[i] >= 0:
                 threshold_reward[i] = threshold[i] * 5
             else:
@@ -168,12 +168,17 @@ class Env(object):
         s_ = list(map(lambda x: x[0] + x[1], zip(s, a)))
         # s_ = s + a
         # threshold = s_[0]
-        threshold = s_
+        # threshold = s_
         """限制阈值范围"""
-        # threshold[threshold > self.STATE_HIGH_BOUND] = self.STATE_HIGH_BOUND
-        # threshold[threshold < self.STATE_LOW_BOUND] = self.STATE_LOW_BOUND
+        for i_ in range(len(s_)):
+            if s_[i_] > self.STATE_HIGH_BOUND:
+                s_[i_] = self.STATE_HIGH_BOUND
+            elif s_[i_] < self.STATE_LOW_BOUND:
+                s_[i_] = self.STATE_LOW_BOUND
+
         for i_ in range(len(self.FLAG_EMPTY)):
-            threshold[self.FLAG_EMPTY[i_]] = self.FLAG_VALUE
+            s_[self.FLAG_EMPTY[i_]] = self.FLAG_VALUE
+        threshold = s_
         """处理音频"""
         ft_abs, pha, sr = self.process_audio(self.source_path_wav)
         process_index_dict = self.process_index_dict
@@ -194,7 +199,7 @@ class Env(object):
         temp_wirte_path = r'temp.wav'
         soundfile.write(temp_wirte_path, y_hat, samplerate=sr)
         t0 = time.time()
-        trans_result = ASR.asr_api(temp_wirte_path, 'google')
+        trans_result = ASR.asr_api(temp_wirte_path, 'deepspeech')
         t1 = time.time()
         r = self.calculate_reward(self.source_result, trans_result, self.source_path_wav, phn_hat=y_hat,
                                   threshold=threshold, s=s, a=a)

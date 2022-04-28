@@ -21,7 +21,7 @@ class ActorNetwork(nn.Module):
         super(ActorNetwork, self).__init__()
 
         self.l1 = nn.Linear(state_dim, 128)
-        self.l2 = nn.Linear(128, 128)
+        # self.l2 = nn.Linear(128, 128)
         self.l3 = nn.Linear(128, action_dim)
         self.max_action = max_action
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
@@ -30,11 +30,11 @@ class ActorNetwork(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.l1(x))
-        x = F.relu(self.l2(x))
+        # x = F.relu(self.l2(x))
         x = self.l3(x)
         x = self.layer_norm2(x)
         x = torch.tanh(x)
-        x = ((x + 1) / 2)
+        x = x / 5
         return x
 
     def choose_action(self, s):
@@ -51,7 +51,7 @@ class CriticNetwork(nn.Module):
         super(CriticNetwork, self).__init__()
 
         self.l1 = nn.Linear(state_dim + action_dim, 128)
-        self.l2 = nn.Linear(128, 128)
+        # self.l2 = nn.Linear(128, 128)
         self.l3 = nn.Linear(128, 1)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
 
@@ -59,7 +59,7 @@ class CriticNetwork(nn.Module):
         temp_ = torch.cat((x, u), 1)
         temp = self.l1(temp_)
         x = F.relu(temp)
-        x = F.relu(self.l2(x))
+        # x = F.relu(self.l2(x))
         x = self.l3(x)
         return x
 
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     total_AVG_threshold = []
     total_TD_error = []
 
-    for t in tqdm(range(100)):
+    for t in tqdm(range(20)):
         state = env.reset()
         ep_reward = []  # 记录当前EP的reward
         TD_ERROR = []  # 记录当前EP的TD_ERROR
@@ -194,8 +194,21 @@ if __name__ == '__main__':
             actions = []
             for i, agent in enumerate(agents_list):
                 a = agent.actor.choose_action(agent.observation(state))
-                a = np.clip(np.random.normal(a, var), -env.action_space_high(),
-                            env.action_space_high())  # add randomness to action selection for exploration
+                if reward < r_max and M.pointer > args.memory_capacity:
+                    for dim in range(0, len(state)):
+                        if state[dim] >= 2:
+                            a[dim] = -np.abs(np.clip(np.random.normal(a[dim], var), -0.2, 0.2))
+                        else:
+                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.2, 0.2)
+                else:
+                    for dim in range(0, len(state)):
+                        if state[dim] <= 0:
+                            a[dim] = np.abs(np.clip(np.random.normal(a[dim], var), -0.2, 0.2))
+                        else:
+                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.2, 0.2)
+
+                # a = np.clip(np.random.normal(a, var), -env.action_space_high(),
+                #             env.action_space_high())  # add randomness to action selection for exploration
                 actions += a.tolist()
             state_, reward, done, asr_time = env.step(state, actions)
 
@@ -207,7 +220,7 @@ if __name__ == '__main__':
                 print('\n temp_record_done_s', r_max_record)
                 print('\n temp_record_epoch:', epoch_record)
             ep_reward.append(reward)
-            avg_S += state
+            avg_S += state_
 
             # plot_x = np.append(plot_x, args.max_ep_step * t + ep)
             # # plot_acc = np.append(plot_acc, acc)
@@ -216,7 +229,8 @@ if __name__ == '__main__':
             # np.savez('./result/RL.npz', plot_x, plot_acc, plot_cost, plot_reward)
 
             M.store_transition(state, actions, reward, state_)
-            if not (M.pointer <= args.rl_batch_size or ep % 2):
+            state = state_
+            if not (M.pointer <= args.memory_capacity or ep % 2):
                 for i, agent in enumerate(agents_list):
                     states, actions, rewards, states_ = M.sample(args.rl_batch_size)
                     server.critic_list[i].optimizer.zero_grad()
@@ -265,22 +279,22 @@ if __name__ == '__main__':
                 # 保存
                 torch.save(agents_list[0].target_actor.state_dict(), '../actor_model')
 
-        if (t + 1) % 5 == 0:
+        # if (t + 1) % 5 == 0:
 
-            plt.title('EP-Reward,epoch_{}'.format(t))
-            plt.xlabel('steps')
-            plt.ylabel('reward value')
-            plt.plot(np.array(range(len(ep_reward))), ep_reward)
-            plt.savefig(r'..\figure\reward_{}'.format(t))
-            plt.show()
+        plt.title('EP-Reward,epoch_{}'.format(t))
+        plt.xlabel('steps')
+        plt.ylabel('reward value')
+        plt.plot(np.array(range(len(ep_reward))), ep_reward)
+        plt.savefig(r'..\figure\reward_{}'.format(t))
+        plt.show()
 
-            plt.figure()
-            plt.title('EP-TD_ERROR,epoch_{}'.format(t))
-            plt.xlabel('steps')
-            plt.ylabel('td_error value')
-            plt.plot(np.array(range(len(TD_ERROR))), TD_ERROR)
-            plt.savefig(r'..\figure\TD-Error_{}'.format(t))
-            plt.show()
+        plt.figure()
+        plt.title('EP-TD_ERROR,epoch_{}'.format(t))
+        plt.xlabel('steps')
+        plt.ylabel('td_error value')
+        plt.plot(np.array(range(len(TD_ERROR))), TD_ERROR)
+        plt.savefig(r'..\figure\TD-Error_{}'.format(t))
+        plt.show()
 
         total_TD_error.append(TD_ERROR)
         total_reward.append(ep_reward)
