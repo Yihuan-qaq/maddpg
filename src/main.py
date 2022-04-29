@@ -21,7 +21,7 @@ class ActorNetwork(nn.Module):
         super(ActorNetwork, self).__init__()
 
         self.l1 = nn.Linear(state_dim, 128)
-        # self.l2 = nn.Linear(128, 128)
+        self.l2 = nn.Linear(128, 128)
         self.l3 = nn.Linear(128, action_dim)
         self.max_action = max_action
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
@@ -30,11 +30,13 @@ class ActorNetwork(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.l1(x))
-        # x = F.relu(self.l2(x))
+        x = F.relu(self.l2(x))
         x = self.l3(x)
         x = self.layer_norm2(x)
         x = torch.tanh(x)
-        x = x / 5
+        x = x / 20
+        # """将输出限定到[0,2]"""
+        # x = x + 1
         return x
 
     def choose_action(self, s):
@@ -51,7 +53,7 @@ class CriticNetwork(nn.Module):
         super(CriticNetwork, self).__init__()
 
         self.l1 = nn.Linear(state_dim + action_dim, 128)
-        # self.l2 = nn.Linear(128, 128)
+        self.l2 = nn.Linear(128, 128)
         self.l3 = nn.Linear(128, 1)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
 
@@ -59,7 +61,7 @@ class CriticNetwork(nn.Module):
         temp_ = torch.cat((x, u), 1)
         temp = self.l1(temp_)
         x = F.relu(temp)
-        # x = F.relu(self.l2(x))
+        x = F.relu(self.l2(x))
         x = self.l3(x)
         return x
 
@@ -124,41 +126,6 @@ class Server:
         self.action_dim = action_dim
 
 
-# def compare(dataloaders, locations_list):
-#     dir = './compare/'
-#     list_path = os.listdir(dir)  # 根目录下的文件路径组成列表
-#
-#     for file in list_path:
-#
-#         plot_x = np.zeros(0)
-#         plot_reward = np.zeros(0)
-#         plot_acc = np.zeros(0)
-#         plot_cost = np.zeros(0)
-#
-#         setting_file = os.path.join(dir, file)
-#
-#         with open(setting_file) as fp:
-#             load_dict = json.load(fp)
-#
-#         args = args_parser(load_dict)
-#         tmp = os.path.splitext(file)
-#         result_file = tmp[0] + ".npz"
-#         result_path = os.path.join('./result/', result_file)
-#
-#         print(file)
-#         env = FL(args, dataloaders, locations_list)
-#         for i in tqdm(range(args.max_episodes * args.max_ep_step)):
-#             if i % args.max_ep_step == 0:
-#                 env.reset()
-#             actions = [0.1] * env.num_clients
-#             _, reward, acc, cost = env.step(actions)
-#             plot_x = np.append(plot_x, i)
-#             plot_acc = np.append(plot_acc, acc)
-#             plot_reward = np.append(plot_reward, reward)
-#             plot_cost = np.append(plot_cost, cost)
-#             np.savez(result_path, plot_x, plot_acc, plot_cost, plot_reward)
-
-
 if __name__ == '__main__':
     np.random.seed(1)
     args = args_parser()
@@ -183,7 +150,7 @@ if __name__ == '__main__':
     total_AVG_threshold = []
     total_TD_error = []
 
-    for t in tqdm(range(20)):
+    for t in tqdm(range(10)):
         state = env.reset()
         ep_reward = []  # 记录当前EP的reward
         TD_ERROR = []  # 记录当前EP的TD_ERROR
@@ -197,15 +164,15 @@ if __name__ == '__main__':
                 if reward < r_max and M.pointer > args.memory_capacity:
                     for dim in range(0, len(state)):
                         if state[dim] >= 2:
-                            a[dim] = -np.abs(np.clip(np.random.normal(a[dim], var), -0.2, 0.2))
+                            a[dim] = -np.abs(np.clip(np.random.normal(a[dim], var), -0.05, 0.05))
                         else:
-                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.2, 0.2)
+                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.05, 0.05)
                 else:
                     for dim in range(0, len(state)):
                         if state[dim] <= 0:
-                            a[dim] = np.abs(np.clip(np.random.normal(a[dim], var), -0.2, 0.2))
+                            a[dim] = np.abs(np.clip(np.random.normal(a[dim], var), -0.05, 0.05))
                         else:
-                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.2, 0.2)
+                            a[dim] = np.clip(np.random.normal(a[dim], var), -0.05, 0.05)
 
                 # a = np.clip(np.random.normal(a, var), -env.action_space_high(),
                 #             env.action_space_high())  # add randomness to action selection for exploration
@@ -222,14 +189,9 @@ if __name__ == '__main__':
             ep_reward.append(reward)
             avg_S += state_
 
-            # plot_x = np.append(plot_x, args.max_ep_step * t + ep)
-            # # plot_acc = np.append(plot_acc, acc)
-            # plot_reward = np.append(plot_reward, reward)
-            # plot_cost = np.append(plot_cost, cost)
-            # np.savez('./result/RL.npz', plot_x, plot_acc, plot_cost, plot_reward)
-
             M.store_transition(state, actions, reward, state_)
-            state = state_
+            state = copy.deepcopy(state_)
+
             if not (M.pointer <= args.memory_capacity or ep % 2):
                 for i, agent in enumerate(agents_list):
                     states, actions, rewards, states_ = M.sample(args.rl_batch_size)
@@ -279,6 +241,8 @@ if __name__ == '__main__':
                 # 保存
                 torch.save(agents_list[0].target_actor.state_dict(), '../actor_model')
 
+            if done is True and M.pointer >= args.memory_capacity:
+                break
         # if (t + 1) % 5 == 0:
 
         plt.title('EP-Reward,epoch_{}'.format(t))
@@ -298,9 +262,17 @@ if __name__ == '__main__':
 
         total_TD_error.append(TD_ERROR)
         total_reward.append(ep_reward)
-        total_AVG_threshold.append(avg_S / args.max_ep_step)
+        total_AVG_threshold.append(avg_S / (ep + 1))
 
-        print('AVG_Threshold:{}'.format(avg_S / args.max_ep_step))
+        print('Reward:{} | AVG_Threshold:{}'.format(sum(ep_reward), (avg_S / (ep + 1))))
+
+    plt.figure()
+    plt.title('Reward')
+    plt.xlabel('epoch')
+    plt.ylabel('reward value')
+    plt.plot(np.array(range(len(total_reward))), total_reward)
+    plt.savefig(r'..\figure\total-reward')
+    plt.show()
 
     np.save(r'../result/TD_ERROR.npy', np.array(total_TD_error))
     np.save(r'../result/Reward.npy', np.array(total_reward))

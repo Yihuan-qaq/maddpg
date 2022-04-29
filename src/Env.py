@@ -29,10 +29,12 @@ class Env(object):
 
         self.FLAG_EMPTY = []  # 记录没有出现的音素位置
         self.FLAG_VALUE = -100  # 标记音素没有出现位置的值
-        self.bound_high = 0.2
-        self.bound_low = -0.2
+        self.bound_high = 0.05
+        self.bound_low = -0.05
         self.STATE_HIGH_BOUND = 2
         self.STATE_LOW_BOUND = 0
+        self.DONE_REWARD = 70
+
         self.process_index_dict = self.find_phon()
         self.s_dim = len(self.process_index_dict)
         self.a_dim = self.s_dim
@@ -169,6 +171,7 @@ class Env(object):
         # s_ = s + a
         # threshold = s_[0]
         # threshold = s_
+        # s_ = a
         """限制阈值范围"""
         for i_ in range(len(s_)):
             if s_[i_] > self.STATE_HIGH_BOUND:
@@ -203,6 +206,8 @@ class Env(object):
         t1 = time.time()
         r = self.calculate_reward(self.source_result, trans_result, self.source_path_wav, phn_hat=y_hat,
                                   threshold=threshold, s=s, a=a)
+        if r > self.DONE_REWARD:
+            done = True
         return s_, r, done, t1 - t0
 
     def reset(self):

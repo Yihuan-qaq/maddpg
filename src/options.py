@@ -34,7 +34,7 @@ class args_parser():
 
         self.gamma = 0.9
         self.rl_batch_size = 16
-        self.memory_capacity = 400
+        self.memory_capacity = 200
         self.TAU = 0.01
 
         self.cuda = torch.cuda.is_available()
