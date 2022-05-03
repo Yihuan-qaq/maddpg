@@ -1,3 +1,5 @@
+import copy
+
 import soundfile
 import librosa
 import numpy as np
@@ -15,7 +17,7 @@ class Env(object):
 
         flag = 0
         if flag == 0:
-            self.source_result = ASR.asr_api(self.source_path_wav, 'deepspeech')
+            self.source_result = ASR.asr_api(self.source_path_wav, 'google')
             self.temp_source_result = self.source_result
             flag = 1
             print("----source result :{}".format(self.source_result))
@@ -29,11 +31,11 @@ class Env(object):
 
         self.FLAG_EMPTY = []  # 记录没有出现的音素位置
         self.FLAG_VALUE = -100  # 标记音素没有出现位置的值
-        self.bound_high = 0.05
-        self.bound_low = -0.05
+        self.bound_high = 2
+        self.bound_low = 0
         self.STATE_HIGH_BOUND = 2
         self.STATE_LOW_BOUND = 0
-        self.DONE_REWARD = 70
+        self.DONE_REWARD = 45
 
         self.process_index_dict = self.find_phon()
         self.s_dim = len(self.process_index_dict)
@@ -110,24 +112,30 @@ class Env(object):
         average_change = overall_change / len(audio1)
         return average_change
 
-    def calculate_reward(self, source_result, processed_result, source_path, phn_hat, threshold, s, a):
+    def calculate_reward(self, source_result, processed_result, source_path, phn_hat, threshold):
         # """ 对那些超出阈值范围的状态进行大力度惩罚 """
         # s = s[0]
         # a = a[0]
-        threshold_reward = np.zeros(shape=(len(s)), dtype=float)
-        for i in range(len(s)):
+        threshold_reward = np.zeros(shape=(len(threshold)), dtype=float)
+        # for i in range(len(threshold)):
+        #     if threshold[i] == self.FLAG_VALUE:
+        #         threshold_reward[i] = 0
+        #     elif s[i] <= self.STATE_LOW_BOUND:
+        #         if a[i] <= 0:
+        #             threshold_reward[i] = np.abs(threshold[i]) * 10
+        #         else:
+        #             threshold_reward[i] = np.abs(threshold[i]) * 2
+        #     elif s[i] >= self.STATE_HIGH_BOUND and a[i] >= 0:
+        #         threshold_reward[i] = threshold[i] * 5
+        #     else:
+        #         threshold_reward[i] = threshold[i]
+
+        # threshold_reward = threshold
+        for i in range(len(threshold)):
             if threshold[i] == self.FLAG_VALUE:
                 threshold_reward[i] = 0
-            elif s[i] <= self.STATE_LOW_BOUND:
-                if a[i] <= 0:
-                    threshold_reward[i] = np.abs(threshold[i]) * 10
-                else:
-                    threshold_reward[i] = np.abs(threshold[i]) * 2
-            elif s[i] >= self.STATE_HIGH_BOUND and a[i] >= 0:
-                threshold_reward[i] = threshold[i] * 5
             else:
                 threshold_reward[i] = threshold[i]
-
         """ 计算MSE分数"""
         if source_result == "RequestError":
             r = 0
@@ -153,10 +161,11 @@ class Env(object):
         """计算总的reward"""
         # total_threshold =
         mean_threshold = np.sum(threshold_reward) / (len(threshold_reward) - len(self.FLAG_EMPTY))
+        # mean_threshold = np.mean(threshold_reward)
         r = wer_value * 100 - MSE_ratio * 70 - mean_threshold * 60
         return r
 
-    def step(self, s, a):
+    def step(self, a):
         """
         :input: 动作a
         计算当前状态s加上动作a后的下一状态s_;
@@ -167,11 +176,11 @@ class Env(object):
         """
         done = False
         r = 0
-        s_ = list(map(lambda x: x[0] + x[1], zip(s, a)))
+        # s_ = list(map(lambda x: x[0] + x[1], zip(s, a)))
         # s_ = s + a
         # threshold = s_[0]
         # threshold = s_
-        # s_ = a
+        s_ = copy.deepcopy(a)
         """限制阈值范围"""
         for i_ in range(len(s_)):
             if s_[i_] > self.STATE_HIGH_BOUND:
@@ -202,10 +211,10 @@ class Env(object):
         temp_wirte_path = r'temp.wav'
         soundfile.write(temp_wirte_path, y_hat, samplerate=sr)
         t0 = time.time()
-        trans_result = ASR.asr_api(temp_wirte_path, 'deepspeech')
+        trans_result = ASR.asr_api(temp_wirte_path, 'google')
         t1 = time.time()
         r = self.calculate_reward(self.source_result, trans_result, self.source_path_wav, phn_hat=y_hat,
-                                  threshold=threshold, s=s, a=a)
+                                  threshold=threshold)
         if r > self.DONE_REWARD:
             done = True
         return s_, r, done, t1 - t0
@@ -215,8 +224,9 @@ class Env(object):
         初始化状态
         :return: 状态s
         """
-        Max = 0.5  # 随机生成小数的最大值
-        s = list(np.random.rand(self.s_dim) * Max)
+        # Max = 0.5  # 随机生成小数的最大值
+        # s = list(np.random.rand(self.s_dim) * Max)
+        s = np.zeros(shape=self.s_dim)
         return s
 
     def action_space_high(self):

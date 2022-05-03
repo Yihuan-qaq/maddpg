@@ -17,7 +17,7 @@ class args_parser():
 
         self.model = "lenet"
         self.batch_size = 10
-        self.max_ep_step = 100
+        self.max_ep_step = 64
         self.num_iteration = 120
         self.num_edge_aggregation = 1
         self.num_communication = 1
@@ -34,8 +34,10 @@ class args_parser():
 
         self.gamma = 0.9
         self.rl_batch_size = 16
-        self.memory_capacity = 200
+        self.memory_capacity = 2000
         self.TAU = 0.01
 
         self.cuda = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+
+        self.load = True
