@@ -224,9 +224,9 @@ class Env(object):
         初始化状态
         :return: 状态s
         """
-        # Max = 0.5  # 随机生成小数的最大值
-        # s = list(np.random.rand(self.s_dim) * Max)
-        s = np.zeros(shape=self.s_dim)
+        Max = 0.5  # 随机生成小数的最大值
+        s = list(np.random.rand(self.s_dim) * Max)
+        # s = np.zeros(shape=self.s_dim)
         return s
 
     def action_space_high(self):
