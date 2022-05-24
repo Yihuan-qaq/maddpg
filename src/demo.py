@@ -148,6 +148,7 @@ ddpg = model
 # # test
 # # ddpg.load_ckpt()
 record = []
+threshold = []
 for i_ in range(10):
         s = env.reset()
         for i in range(20):
@@ -157,7 +158,26 @@ for i_ in range(10):
             if done is True:
                 print('\n Reward:{} | Step:{} | Epoch:{} '.format(r, i, i_))
                 record.append([r, i, i_])
+                threshold.append(a)
                 break
+
+threshold = np.array(threshold)
+
+mean_threshold = np.zeros(shape=len(threshold[0]))
+for col in range(len(threshold[0])):
+    for row in range(len(threshold)):
+        cnt = 0
+        temp_threshold = 0
+        if threshold[row][col] != 0:
+            temp_threshold += threshold[row][col]
+            cnt += 1
+    if cnt == 0:
+        mean_threshold[col] = 0.0
+    else:
+        mean_threshold[col] = temp_threshold / cnt
+
+print(mean_threshold)
+
 # for j in range(len(record)):
 #     print('\n Reward:{} | Step:{} | Epoch:{} '.format(record[j][0], record[j][1], record[j][2]))
 
