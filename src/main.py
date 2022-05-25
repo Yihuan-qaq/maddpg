@@ -10,6 +10,7 @@ from tqdm import tqdm
 import random
 import json
 from Env import Env
+from ENV_F import Env_F
 import matplotlib.pyplot as plt
 
 
@@ -115,10 +116,8 @@ class Agent:
 
     # 用于FL
     def observation(self, state):
-        if type(state) == list:
-            state = copy.copy(state)
-        else:
-            state = state.clone()
+
+        state = copy.copy(state)
         return state
 
 
@@ -134,14 +133,15 @@ class Server:
 if __name__ == '__main__':
     np.random.seed(1)
     args = args_parser()
-    PHN = ['iy', 'ih', 'eh', 'ey', 'ae', 'aa', 'aw', 'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw',
-           'ux', 'er', 'ax', 'ix', 'arx', 'ax-h']  # 20个元音音素
+    # PHN = ['iy', 'ih', 'eh', 'ey', 'ae', 'aa', 'aw', 'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw',
+    #        'ux', 'er', 'ax', 'ix', 'arx', 'ax-h']  # 20个元音音素
+    FREQ_BAND = [[50, 300], [300, 3000], [4000, 5500], [5500, 6000], [6500, 7800], [7800, 8000]]
     # PHN = ['jh', 'ch', 's', 'sh', 'z', 'zh', 'f', 'th', 'v', 'dh', 'b', 'd', 'g', 'p', 't', 'k',
     #        'dx', 'q']  # 摩擦音/破擦音/爆破音
     SOURCE_PATH_PHN = r'../example/si836.phn'
     SOURCE_PATH_WAV = r'../example/si836.wav'
 
-    env = Env(PHN, SOURCE_PATH_WAV, SOURCE_PATH_PHN)
+    env = Env_F(FREQ_BAND, SOURCE_PATH_WAV, SOURCE_PATH_PHN)
     var = 0.3
     agents_list = [Agent(env.get_s_dim(), env.get_a_dim(), i, args, env.action_space_high()) for i in range(1)]
     M = Memory(capacity=args.memory_capacity, state_dim=env.get_s_dim(), action_dim=env.get_a_dim(), num_agents=1)
@@ -185,7 +185,7 @@ if __name__ == '__main__':
             state_, reward, done, asr_time = env.step(actions)
 
             if reward > r_max:
-                r_max_record = state
+                r_max_record = actions
                 r_max = reward
                 epoch_record = t
                 print('\n temp_record_done_r', r_max)
