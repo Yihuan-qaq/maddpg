@@ -148,7 +148,7 @@ class Env_F(object):
         # total_threshold =
         mean_threshold = np.sum(threshold_reward) / (len(threshold_reward) - len(self.FLAG_EMPTY))
         # mean_threshold = np.mean(threshold_reward)
-        r = wer_value * 100 - MSE_ratio * 70 - mean_threshold * 70
+        r = wer_value * 100 - MSE_ratio * 60 - mean_threshold * 50
         return r
 
     def step(self, a):
