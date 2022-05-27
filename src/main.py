@@ -155,7 +155,7 @@ if __name__ == '__main__':
     total_AVG_threshold = []
     total_TD_error = []
 
-    for t in tqdm(range(100)):
+    for t in tqdm(range(args.max_iter)):
         state = env.reset()
         ep_reward = []  # 记录当前EP的reward
         TD_ERROR = []  # 记录当前EP的TD_ERROR

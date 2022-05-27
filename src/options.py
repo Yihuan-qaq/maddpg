@@ -17,7 +17,8 @@ class args_parser():
 
         self.model = "lenet"
         self.batch_size = 10
-        self.max_ep_step = 64
+        self.max_ep_step = 32
+        self.max_iter = 200
         self.num_iteration = 120
         self.num_edge_aggregation = 1
         self.num_communication = 1

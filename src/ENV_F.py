@@ -20,7 +20,7 @@ class Env_F(object):
 
         flag = 0
         if flag == 0:
-            self.source_result = ASR.asr_api(self.source_path_wav, 'google')
+            self.source_result = ASR.asr_api(self.source_path_wav, 'deepspeech')
             self.temp_source_result = self.source_result
             flag = 1
             print("----source result :{}".format(self.source_result))
@@ -148,7 +148,7 @@ class Env_F(object):
         # total_threshold =
         mean_threshold = np.sum(threshold_reward) / (len(threshold_reward) - len(self.FLAG_EMPTY))
         # mean_threshold = np.mean(threshold_reward)
-        r = wer_value * 100 - MSE_ratio * 60 - mean_threshold * 50
+        r = wer_value * 100 - MSE_ratio * 70 - mean_threshold * 60
         return r
 
     def step(self, a):
@@ -193,7 +193,7 @@ class Env_F(object):
         temp_wirte_path = r'temp.wav'
         soundfile.write(temp_wirte_path, y_hat, samplerate=sr)
         t0 = time.time()
-        trans_result = ASR.asr_api(temp_wirte_path, 'google')
+        trans_result = ASR.asr_api(temp_wirte_path, 'deepspeech')
         t1 = time.time()
         r = self.calculate_reward(self.source_result, trans_result, self.source_path_wav, phn_hat=y_hat,
                                   threshold=threshold)
